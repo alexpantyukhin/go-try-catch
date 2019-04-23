@@ -59,9 +59,6 @@ func (tryCatch *TryCatch) Do() {
 				var tryCatchErrorType = reflect.TypeOf(tryCatchErr)
 
 				for _, c := range tryCatch.catches {
-					fmt.Println(c.errType)
-					fmt.Println(tryCatchErrorType)
-
 					if c.errType == tryCatchErrorType.Name() {
 						tryCatchError = nil
 						c.f(tryCatchErr)
@@ -89,7 +86,7 @@ func RaiseError(err *Error) {
 func main()  {
 	Try(func(){
 		fmt.Println("Hello world!")
-		RaiseError(&Error{"fuck!"})
+		RaiseError(&Error{"Oh no!"})
 	}).
 	Catch("Error", func(err IError){
 		fmt.Println("Catch found!")
