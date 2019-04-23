@@ -1,9 +1,10 @@
 package main
 
-import "fmt"
-import "reflect"
-
-var tryCatchError IError
+import (
+	"errors"
+	"fmt"
+	"reflect"
+)
 
 // IError interface
 type IError interface {
@@ -21,25 +22,34 @@ func (err Error) GetMessage() string {
 }
 
 type catch struct {
-	errType string
-	f func(err IError)
+	errType reflect.Type
+	handler reflect.Value
 }
 
 // TryCatch the struct.
 type TryCatch struct {
-	f func()
+	f       func()
 	catches []catch
 	finally func()
 }
 
 // Try method
 func Try(f func()) *TryCatch {
-    return &TryCatch{f, []catch{}, nil}
+	return &TryCatch{f, []catch{}, nil}
 }
 
 // Catch method
-func (tryCatch *TryCatch) Catch(err string, f func(err IError)) *TryCatch {
-	tryCatch.catches = append(tryCatch.catches, catch{err, f})
+func (tryCatch *TryCatch) Catch(fn interface{}) *TryCatch {
+	fnV := reflect.ValueOf(fn)
+	if fnV.Kind() != reflect.Func {
+		panic(errors.New(".Catch: expected function"))
+	}
+	fnT := fnV.Type()
+	if fnT.NumIn() != 1 {
+		panic(errors.New(".Catch: expected function to accept 1 argument"))
+	}
+
+	tryCatch.catches = append(tryCatch.catches, catch{fnT.In(0), fnV})
 	return tryCatch
 }
 
@@ -52,45 +62,56 @@ func (tryCatch *TryCatch) Finally(f func()) *TryCatch {
 // Do method
 func (tryCatch *TryCatch) Do() {
 
-    defer func() {
-        if r := recover(); r != nil {
-			tryCatchErr, ok := r.(IError)
-			if (ok){
-				var tryCatchErrorType = reflect.TypeOf(tryCatchErr)
+	defer func() {
+		if r := recover(); r != nil {
+			_, ok := r.(IError)
+			if ok {
+				var tryCatchErrorType = reflect.TypeOf(r)
+				var catched = false
 
-				for _, c := range tryCatch.catches {
-					if c.errType == tryCatchErrorType.Name() {
-						tryCatchError = nil
-						c.f(tryCatchErr)
+				for _, catcher := range tryCatch.catches {
+					if tryCatchErrorType.AssignableTo(catcher.errType) {
+						catcher.handler.Call([]reflect.Value{reflect.ValueOf(r)})
+						catched = true
+						break
+					}
+
+					if catcher.errType.Kind() == reflect.Interface && tryCatchErrorType.Implements(catcher.errType) {
+						catcher.handler.Call([]reflect.Value{reflect.ValueOf(r)})
+						catched = true
+						break
 					}
 				}
 
-				if (tryCatch.finally != nil){
+				if tryCatch.finally != nil {
 					tryCatch.finally()
 				}
+
+				if !catched {
+					panic(r)
+				}
 			}
-        }
+		}
 	}()
-	
+
 	tryCatch.f()
 }
 
 // RaiseError method
 func RaiseError(err *Error) {
-	//tryCatchError = err
 	panic(err)
 }
 
-
-
-func main()  {
-	Try(func(){
+func main() {
+	Try(func() {
 		fmt.Println("Hello world!")
-		RaiseError(&Error{"Oh no!"})
+		RaiseError(&Error{"Oh no! something went wrong!"})
 	}).
-	Catch("Error", func(err IError){
-		fmt.Println("Catch found!")
-	}).
-	Finally(func(){}).
-	Do()
+		Catch(func(err *Error) {
+			fmt.Println("Catch exc: " + err.GetMessage())
+		}).
+		Finally(func() {
+			fmt.Println("Wrap up!")
+		}).
+		Do()
 }
