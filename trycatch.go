@@ -1,8 +1,7 @@
-package main
+package trycatch
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 )
 
@@ -83,14 +82,14 @@ func (tryCatch *TryCatch) Do() {
 					}
 				}
 
-				if tryCatch.finally != nil {
-					tryCatch.finally()
-				}
-
 				if !catched {
 					panic(r)
 				}
 			}
+		}
+
+		if tryCatch.finally != nil {
+			tryCatch.finally()
 		}
 	}()
 
@@ -100,18 +99,4 @@ func (tryCatch *TryCatch) Do() {
 // RaiseError method
 func RaiseError(err *Error) {
 	panic(err)
-}
-
-func main() {
-	Try(func() {
-		fmt.Println("Hello world!")
-		RaiseError(&Error{"Oh no! something went wrong!"})
-	}).
-		Catch(func(err *Error) {
-			fmt.Println("Catch exc: " + err.GetMessage())
-		}).
-		Finally(func() {
-			fmt.Println("Wrap up!")
-		}).
-		Do()
 }
