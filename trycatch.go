@@ -32,7 +32,7 @@ type TryCatch struct {
 	finally func()
 }
 
-// Try method
+// Try gets the function with expected error.
 func Try(f func()) *TryCatch {
 	return &TryCatch{f, []catch{}, nil}
 }
@@ -58,7 +58,7 @@ func (tryCatch *TryCatch) Finally(f func()) *TryCatch {
 	return tryCatch
 }
 
-// Do method
+// Do runs the Try func, apply catch and finally
 func (tryCatch *TryCatch) Do() {
 
 	defer func() {
